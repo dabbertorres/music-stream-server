@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
@@ -15,6 +14,7 @@ func main() {
 	router := mux.NewRouter()
 	router.Use(dbMiddle)
 
+	router.Path("/").Methods(http.MethodGet).HandlerFunc(homeHandler)
 	router.Path("/search").Methods(http.MethodGet).HandlerFunc(searchHandler)
 	router.Path("/stream/{artist}/{album}/{title}").Methods(http.MethodGet).HandlerFunc(streamHandler)
 	router.Path("/art/{artist}/{album}/{title}").Methods(http.MethodGet).HandlerFunc(artHandler)
