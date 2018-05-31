@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,22 @@ import (
 	"github.com/dhowden/tag"
 	"github.com/gorilla/mux"
 )
+
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	file, err := os.Open("webapp/index.html")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+	defer file.Close()
+
+	_, err = io.Copy(w, file)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println(err)
+	}
+}
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
@@ -21,24 +38,25 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		artist = "%" + r.Form.Get("artist") + "%"
-		album  = "%" + r.Form.Get("album") + "%"
-		title  = "%" + r.Form.Get("title") + "%"
+		artist = r.Form.Get("artist")
+		album  = r.Form.Get("album")
+		title  = r.Form.Get("title")
 	)
 
+	// don't allow fully empty searches
 	if artist == "" && album == "" && title == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	conn, err := dbConn(r)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
+	// surround the search parameters with wildcards (or make an empty search parameter a wildcard)
+	artist = "%" + artist + "%"
+	album = "%" + album + "%"
+	title = "%" + title + "%"
 
-	rows, err := conn.QueryContext(r.Context(), "select artist, album, title from songs where (artist like ? and album like ? and title like ?)", &artist, &album, &title)
+	conn := dbConn(r)
+
+	rows, err := conn.QueryContext(r.Context(), "select artist, album, title from songs where artist like ? and album like ? and title like ? order by artist, album", &artist, &album, &title)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Println(err)
@@ -80,16 +98,11 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 		title  = vars["title"]
 	)
 
-	conn, err := dbConn(r)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
+	conn := dbConn(r)
 
 	result := Song{}
-	row := conn.QueryRowContext(r.Context(), "select * from songs where (artist = ? and album = ? and title = ?)", artist, album, title)
-	err = row.Scan(&result.Artist, &result.Album, &result.Title, &result.Path)
+	row := conn.QueryRowContext(r.Context(), "select * from songs where artist = ? and album = ? and title = ?", artist, album, title)
+	err := row.Scan(&result.Artist, &result.Album, &result.Title, &result.Path)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -109,16 +122,11 @@ func artHandler(w http.ResponseWriter, r *http.Request) {
 		title  = vars["title"]
 	)
 
-	conn, err := dbConn(r)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
+	conn := dbConn(r)
 
 	var path string
-	row := conn.QueryRowContext(r.Context(), "select path from songs where (artist = ? and album = ? and title = ?)", artist, album, title)
-	err = row.Scan(path)
+	row := conn.QueryRowContext(r.Context(), "select path from songs where artist = ? and album = ? and title = ?", artist, album, title)
+	err := row.Scan(&path)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
