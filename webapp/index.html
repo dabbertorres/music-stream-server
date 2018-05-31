@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Music Stream</title>
+</head>
+<body>
+    <div><img id="songCoverArt" src=""></div>
+    <audio id="songPlayer" controls autoplay src="">
+        Your browser does not support the <code>audio</code> element.
+    </audio>
+
+    <form id="searchForm" action="http://localhost/search" method="get">
+        <input id="artist" type="text" placeholder="Artist...">
+        <input id="album" type="text" placeholder="Album...">
+        <input id="title" type="text" placeholder="Title...">
+        <input type="submit" value="Search">
+    </form>
+
+    <ul id="resultsList"></ul>
+
+    <script>
+        let searchForm   = document.getElementById("searchForm");
+        let resultsList  = document.getElementById("resultsList");
+        let songPlayer   = document.getElementById("songPlayer");
+        let songCoverArt = document.getElementById("songCoverArt");
+
+        function search()
+        {
+            let req = new XMLHttpRequest();
+
+            req.addEventListener("load", event =>
+            {
+                // response is an array of song objects containing { artist; album; title }
+                let results = JSON.parse(event.target.responseText);
+
+                // clear any prior results
+                resultsList.innerHTML = "";
+
+                for(let r of results)
+                {
+                    let a  = document.createElement("a");
+                    a.href = "http://localhost/stream/" + r.artist + "/" + r.album + "/" + r.title;
+                    a.text = r.title + " - " + r.album + " - " + r.artist;
+                    a.addEventListener("click", event =>
+                    {
+                        event.preventDefault();
+                        play(a.href);
+                    });
+
+                    let li = document.createElement("li");
+                    li.appendChild(a);
+
+                    resultsList.appendChild(li);
+                }
+            });
+            req.addEventListener("error", () => alert("Something went wrong while searching results"));
+
+            let artist = document.getElementById("artist").value;
+            let album  = document.getElementById("album").value;
+            let title  = document.getElementById("title").value;
+
+            let query = "?artist=" + encodeURIComponent(artist)
+                        + "&album=" + encodeURIComponent(album)
+                        + "&title=" + encodeURIComponent(title);
+
+            req.open(searchForm.method, searchForm.action + query, true);
+            req.send();
+        }
+
+        function play(songSrc)
+        {
+            songPlayer.src   = songSrc;
+            songCoverArt.src = songSrc.replace("stream", "art");
+        }
+
+        searchForm.addEventListener("submit", event =>
+        {
+            event.preventDefault();
+            search();
+        });
+    </script>
+</body>
+</html>
