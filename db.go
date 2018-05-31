@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/dhowden/tag"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -33,8 +34,8 @@ func dbMiddle(next http.Handler) http.Handler {
 	})
 }
 
-func dbConn(r *http.Request) (*sql.Conn, error) {
-	return r.Context().Value(dbConnKey).(*sql.DB).Conn(r.Context())
+func dbConn(r *http.Request) *sql.Conn {
+	return r.Context().Value(dbConnKey).(*sql.Conn)
 }
 
 func initDb() (err error) {
@@ -47,8 +48,7 @@ func initDb() (err error) {
 	artist varchar(32) not null,
 	album varchar(32) not null,
 	title varchar(64) not null,
-	path varchar(64) not null,
-	primary key (artist, album, title))`)
+	path varchar(64) unique not null)`)
 
 	if err != nil {
 		return
